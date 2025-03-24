@@ -1,10 +1,12 @@
 import json
 import random
+import os
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
 
 class UserAgent:
     def __init__(self):
-        with open("static/user_agents.json", "r") as f:
+        with open(f"{current_dir}/../static/user_agents.json", "r") as f:
             self.user_agents = json.load(f)
 
         base_probabilities = [float(item['weights'].strip('%')) for item in self.user_agents]
