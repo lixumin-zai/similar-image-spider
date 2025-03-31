@@ -7,3 +7,13 @@ For building a dataset to obtain similar images.
     - google
 
 - proxy
+    - http & https
+    - auto update 
+    - fastapi server
+```shell
+# use
+cd proxy/
+python proxy_api.py
+
+# curl http://localhost:8000/proxy
+```
