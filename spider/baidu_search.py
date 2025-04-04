@@ -95,16 +95,23 @@ class BaiduSimilarImageSpider:
                     logger.error(f"上传图像时出错, 错误信息: {str(e)}")
                     return ""
     
-    async def __call__(self, image_bytes: bytes) -> str:
+    async def __call__(self, image_bytes: bytes, proxy=None) -> str:
         user_agent = UserAgent()
         headers = {"User-Agent": user_agent()}
 
         search_url = await self.search_image(image_bytes, headers)
-
+        logger.info(f"请求search_url并整理相似图片url: {search_url}")
+        search_images_url = await self.postprocess(search_url)
+        logger.info(f"获取相似图片成功，demo:{search_images_url[0]}")
+        
         return search_url
 
-    def postprocess(self, search_url):
-        pass
+    async def postprocess(self, search_url):
+        async with aiohttp.ClientSession() as session:
+             async with session.get(search_url) as response:
+                search_data = await response.json()
+                images_url = [item["thumbUrl"] for item in search_data["data"]["list"]]
+                return images_url
 
 
 if __name__ == "__main__":

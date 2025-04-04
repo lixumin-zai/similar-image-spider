@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 if __name__ == "__main__":
     spider = BaiduSimilarImageSpider()
     logger.info("123")
-    with open("./test_image/1.png", "rb") as f:
+    with open("./test_image/1.jpg", "rb") as f:
         image_bytes = f.read()
 
     search_url = asyncio.run(spider(image_bytes=image_bytes))
