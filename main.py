@@ -47,7 +47,7 @@ def get_proxy() -> str:
         print(f"获取代理失败: {str(e)}")
         return ""
 
-async def search_and_download(image_path):
+async def search_and_download(image_path, save_dir, start_image=3):
     """
     执行循环搜索和下载过程
     
@@ -62,8 +62,10 @@ async def search_and_download(image_path):
     images_name = os.listdir(image_path)
     logger.info(f"共 {len(images_name)} 张图片")
     total_image_num = 0
-    for image_name in images_name:
-        logger.info(f"开始第 {total_image_num}/{len(images_name)} 张图片的搜索")
+    for idx, image_name in enumerate(images_name):
+        if idx < start_image:
+            continue
+        logger.info(f"开始第 {idx}/{len(images_name)} 张图片的搜索")
         logger.info(f"使用图片进行搜索: {image_name} ")
         with open(os.path.join(image_path, image_name), "rb") as f:
             image_bytes = f.read()
@@ -85,9 +87,9 @@ async def search_and_download(image_path):
         logger.info(f"找到 {len(images_url)} 张相似图片")
         
         # 3. 下载相似图片
-        proxy = get_proxy()
+        # proxy = get_proxy()
         logger.info(f"使用代理下载图片: {proxy}")
-        downloaded_files = await download_images(images_url, proxy)
+        downloaded_files = await download_images(images_url, save_dir, proxy)
         if not downloaded_files:
             logger.error("下载图片失败，终止循环")
             break
@@ -101,7 +103,8 @@ async def search_and_download(image_path):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="循环搜索和下载相似图片")
-    parser.add_argument("--image", type=str, default="./test_image/", help="初始图片路径")
+    parser.add_argument("--image", type=str, default="/Users/lixumin/Desktop/data/question/30d6ea", help="初始图片路径")
+    parser.add_argument("--save_dir", type=str, default="/Users/lixumin/Desktop/data/question/30d6ea-spider-image", help="保存图片路径")
     
     args = parser.parse_args()
     
@@ -111,7 +114,7 @@ if __name__ == "__main__":
         exit(1)
     
     # 运行循环搜索
-    asyncio.run(search_and_download(args.image))
+    asyncio.run(search_and_download(args.image, args.save_dir))
 
     
 

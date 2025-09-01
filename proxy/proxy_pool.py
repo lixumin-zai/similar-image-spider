@@ -4,6 +4,8 @@ import time
 import asyncio
 import aiohttp
 import logging
+import requests
+
 from datetime import datetime
 from get_proxy import ProxyManager
 
@@ -87,6 +89,36 @@ class ProxyPool:
             self.available_proxies.append(proxy_info)
             logger.info(f"添加新代理到池中: {proxy}, 测试结果: {test_result}")
             self.save_pool()
+
+    def test_proxy(self, proxy, timeout=2):
+        """
+        测试代理是否可用
+        
+        Args:
+            proxy (str): 代理地址
+            
+        Returns:
+            tuple: (是否可用, 代理地址, 错误信息)
+        """
+        try:
+            # 设置代理格式
+            proxies = {
+                'http': proxy,
+                'https': proxy
+            }
+            start_time = time.time()
+            response = requests.get('https://mms1.baidu.com/it/u=3609773648,115186739&fm=253&app=138&f=JPEG?w=690&h=148', proxy=proxies, timeout=timeout)
+            if response.status == 200:
+                elapsed = time.time() - start_time
+                logger.debug(f"代理测试成功: {proxy}, 响应时间: {elapsed:.2f}秒")
+                return True, proxy, f"状态码: {response.status}, 响应时间: {elapsed:.2f}秒"
+            else:
+                logger.debug(f"代理测试失败: {proxy}, 状态码: {response.status}")
+                return False, proxy, f"状态码: {response.status}"
+        except Exception as e:
+            logger.debug(f"代理测试异常: {proxy}, 错误: {str(e)}")
+            return False, proxy, str(e)
+
     
     def get_proxy(self):
         """
@@ -99,14 +131,18 @@ class ProxyPool:
             logger.info("代理池为空，尝试刷新代理池")
             self.refresh_pool()
             
-        if self.available_proxies:
+        while self.available_proxies:
             proxy_info = self.available_proxies.pop(0)
             proxy = proxy_info['proxy']
-            self.used_proxies.add(proxy)
-            logger.info(f"获取代理: {proxy}")
-            self.save_pool()
-            return proxy
-        
+            success, _, message = self.proxy_manager.test_proxy(proxy)
+            if success:
+                self.used_proxies.add(proxy)
+                logger.info(f"获取代理: {proxy}")
+                self.save_pool()
+                return proxy
+            else:
+                logger.warning(f"代理测试失败: {proxy}, 错误: {message}")
+            
         logger.warning("没有可用代理")
         return None
     

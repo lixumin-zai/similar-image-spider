@@ -50,10 +50,12 @@ async def download_image(session, url, save_dir, proxy=None):
                 logger.error(f"下载失败 {url}, 状态码: {response.status}")
                 return None
     except Exception as e:
+        # import traceback
+        # traceback.print_exc()
         logger.error(f"下载 {url} 时出错: {str(e)}")
         return None
 
-async def download_images(images_url, proxy=None, max_concurrent=10):
+async def download_images(images_url, save_dir, proxy=None, max_concurrent=1):
     """
     异步下载多个图片
     
@@ -66,12 +68,12 @@ async def download_images(images_url, proxy=None, max_concurrent=10):
         成功下载的图片路径列表
     """
     # 创建保存目录
-    save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "download_image")
+    # save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "download_image")
     os.makedirs(save_dir, exist_ok=True)
     
     # 设置连接池限制和超时
     conn = aiohttp.TCPConnector(limit=max_concurrent)
-    timeout = aiohttp.ClientTimeout(total=60)
+    timeout = aiohttp.ClientTimeout(total=5)
     
     # 创建会话
     async with aiohttp.ClientSession(connector=conn, timeout=timeout) as session:
@@ -94,10 +96,10 @@ async def download_images(images_url, proxy=None, max_concurrent=10):
         logger.info(f"下载完成: 总计 {len(images_url)} 张图片, 成功 {len(successful_downloads)} 张")
         return successful_downloads
 
-def download_images_sync(images_url, proxy=None, max_concurrent=10):
+def download_images_sync(images_url, save_dir, proxy=None, max_concurrent=10):
     """
     同步接口，调用异步下载函数
-    
+    xx
     Args:
         images_url: 图片URL列表
         proxy: 代理地址
@@ -106,7 +108,8 @@ def download_images_sync(images_url, proxy=None, max_concurrent=10):
     Returns:
         成功下载的图片路径列表
     """
-    return asyncio.run(download_images(images_url, proxy, max_concurrent))
+    return asyncio.run(download_images(images_url, save_dir, proxy, max_concurrent))
+
 
 if __name__ == "__main__":
     # 示例用法
