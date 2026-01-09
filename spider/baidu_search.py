@@ -4,6 +4,7 @@
 # @FileName:   baidu_search.py
 
 
+import time
 import requests
 import asyncio
 import aiohttp, aiofiles
@@ -12,7 +13,8 @@ import re
 import json
 import logging
 from aiohttp import ClientTimeout
-from .user_agent import UserAgent
+from spider.user_agent import UserAgent
+from utils.token_helper import get_acs_token_async
 
 
 logger = logging.getLogger(__name__)
@@ -28,13 +30,36 @@ class BaiduSimilarImageSpider:
         self.upload_max_retries = 4
 
         self.upload_image_api = "https://graph.baidu.com/upload"
+        
+        # Token caching
+        self._acs_token = None
+        self._token_timestamp = 0
+        self._token_expiry = 1800  # 30 minutes
 
+    async def _get_valid_token(self, force_refresh=False):
+        """Get a valid acs-token, refreshing if necessary."""
+        try:
+            # Pass force_refresh to the helper
+            token = await get_acs_token_async(force_refresh=force_refresh)
+            if token:
+                logger.info(f"Successfully obtained acs-token: {token[:20]}...")
+            else:
+                logger.error("Failed to obtain acs-token")
+            return token
+        except Exception as e:
+            logger.error(f"Error obtaining acs-token: {e}")
+            return None
 
     async def search_image(
         self,
         image_bytes: bytes, 
         headers: dict
     ) -> str:
+        # Initial token fetch (tries disk first)
+        token = await self._get_valid_token(force_refresh=False)
+        if token:
+            headers["acs-token"] = token
+            
         async with aiohttp.ClientSession() as session:
             logger.info(f"开始上传图像, 图像文件内容大小: {len(image_bytes)} bytes")
 
@@ -49,12 +74,37 @@ class BaiduSimilarImageSpider:
                 try:
                     form = aiohttp.FormData()
                     form.add_field('image', image_bytes, filename='image.jpg', content_type='image/jpeg')
+                    
+                    # 添加 uptime 参数
+                    uptime = int(time.time() * 1000)
+                    upload_url = f"{self.upload_image_api}?uptime={uptime}"
 
-                    async with session.post(self.upload_image_api, headers=headers, data=form, ssl=False, timeout=timeout) as response:
-                        text = await response.text()
+                    async with session.post(upload_url, headers=headers, data=form, ssl=False, timeout=timeout) as response:
+                        # Handle text response first to check for errors
+                        # text = await response.text()
+                        # print(text) 
+                        # Only print text if error occurs or for debug
+                        
                         if response.status == 200:
-                            resp_data = await response.json()
-                            search_url_base = resp_data["data"]["url"]
+                            try:
+                                resp_data = await response.json()
+                            except Exception:
+                                # Not JSON, might be an error page
+                                text = await response.text()
+                                logger.error(f"Response is not JSON: {text[:200]}")
+                                # Check if it's a token error (heuristic)
+                                # If we haven't retried with a new token yet, try once
+                                if "为了保障您的账号安全" in text or "验证码" in text: # Example error messages
+                                     # Force refresh token and retry
+                                     logger.warning("Token might be invalid, refreshing...")
+                                     token = await self._get_valid_token(force_refresh=True)
+                                     if token:
+                                         headers["acs-token"] = token
+
+                                return ""
+
+                            if "data" in resp_data and "url" in resp_data["data"]:
+                                search_url_base = resp_data["data"]["url"]
                             # 提取session_id和sign，处理search返回为None的情况
                             session_match = re.search(r'session_id=([0-9]+)', search_url_base)
                             sign_match = re.search(r'sign=([a-fA-F0-9]+)', search_url_base)
@@ -72,12 +122,16 @@ class BaiduSimilarImageSpider:
                         else:
                             logger.error(f"图像上传失败，状态码: {response.status}")
                             if 403 == response.status:
+                                logger.warning("Received 403, token likely expired. Refreshing token...")
+                                token = await self._get_valid_token(force_refresh=True)
+                                if token:
+                                    headers["acs-token"] = token
+                                    # Continue retries
+                                
                                 retries += 1
-                                logger.error(f"被流控，上传失败, 重试 {retries}/{self.upload_max_retries}")
                                 if retries < self.upload_max_retries:
-                                    await asyncio.sleep(5 ** retries)  # 指数退避
+                                    await asyncio.sleep(2 ** retries) # Exponential backoff
                                 else:
-                                    logger.error(f"已达到最大重试次数，放弃上传")
                                     return ""
                             else:
                                 return ""
@@ -116,7 +170,7 @@ class BaiduSimilarImageSpider:
 
 if __name__ == "__main__":
     spider = BaiduSimilarImageSpider()
-    with open("../test_image/1.png", "rb") as f:
+    with open("./test_image/1.png", "rb") as f:
         image_bytes = f.read()
 
     search_url = asyncio.run(spider(image_bytes=image_bytes))

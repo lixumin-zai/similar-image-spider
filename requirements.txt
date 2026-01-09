@@ -1,4 +1,7 @@
 fastapi
-unicorn
-aiphttp
+uvicorn
+aiohttp
+aiofiles
 bs4
+python-multipart
+playwright

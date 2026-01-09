@@ -5,3 +5,4 @@ output
 *log
 download_image
 static
+*.json

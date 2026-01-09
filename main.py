@@ -47,7 +47,7 @@ def get_proxy() -> str:
         print(f"获取代理失败: {str(e)}")
         return ""
 
-async def search_and_download(image_path, save_dir, start_image=23):
+async def search_and_download(image_path, save_dir, start_image=0):
     """
     执行循环搜索和下载过程
     
@@ -77,7 +77,7 @@ async def search_and_download(image_path, save_dir, start_image=23):
         except Exception as e:
             print(os.path.join(image_path, image_name))
             logger.error(f"搜索失败: {str(e)}")
-            continue
+            break
         
 
         if not search_url:
@@ -110,8 +110,8 @@ async def search_and_download(image_path, save_dir, start_image=23):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="循环搜索和下载相似图片")
-    parser.add_argument("--image", type=str, default="/Users/lixumin/Desktop/data/question/dayi_images_testset", help="初始图片路径")
-    parser.add_argument("--save_dir", type=str, default="/Users/lixumin/Desktop/data/question/dayi-spider-image", help="保存图片路径")
+    parser.add_argument("--image", type=str, default="/Users/lixumin/Desktop/data/question/reading", help="初始图片路径")
+    parser.add_argument("--save_dir", type=str, default="/Users/lixumin/Desktop/data/question/reading-spider-image", help="保存图片路径")
     
     args = parser.parse_args()
     
