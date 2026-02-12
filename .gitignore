@@ -6,3 +6,7 @@ output
 download_image
 static
 *.json
+.agent
+
+frontend/node_modules
+frontend/dist

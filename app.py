@@ -5,9 +5,13 @@ import asyncio
 import logging
 import base64
 import re
+import io
+import zipfile
+import os
 from typing import List
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 import uvicorn
 
@@ -26,6 +30,15 @@ app = FastAPI(
     title="相似图片搜索API",
     description="上传图片获取相似图片URL列表",
     version="1.0.0"
+)
+
+# 添加CORS中间件
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # 初始化爬虫
@@ -227,7 +240,7 @@ async def process_image_search(image_bytes: bytes) -> JSONResponse:
         )
     
     # 限制返回数量为100张
-    images_url = images_url[:100]
+    # images_url = images_url[:100]
     
     logger.info(f"找到 {len(images_url)} 张相似图片")
     
@@ -243,6 +256,72 @@ async def process_image_search(image_bytes: bytes) -> JSONResponse:
             }
         }
     )
+
+
+class DownloadRequest(BaseModel):
+    urls: List[str]
+
+
+@app.post("/download-images")
+async def download_selected_images(request: DownloadRequest):
+    """
+    下载选中的图片并打包为zip返回
+    """
+    if not request.urls:
+        raise HTTPException(status_code=400, detail="URL列表不能为空")
+    
+    # 限制单次最多下载100张
+    # urls = request.urls[:100]
+    urls = request.urls
+    
+    from download_image import download_image
+    import aiohttp
+    import tempfile
+    import shutil
+    
+    # 创建临时目录
+    temp_dir = tempfile.mkdtemp()
+    
+    try:
+        conn = aiohttp.TCPConnector(limit=10)
+        timeout = aiohttp.ClientTimeout(total=30)
+        
+        async with aiohttp.ClientSession(connector=conn, timeout=timeout) as session:
+            semaphore = asyncio.Semaphore(10)
+            
+            async def download_with_semaphore(url):
+                async with semaphore:
+                    return await download_image(session, url, temp_dir)
+            
+            tasks = [download_with_semaphore(url) for url in urls]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # 过滤成功下载的文件
+        downloaded_files = [r for r in results if r is not None and not isinstance(r, Exception)]
+        
+        if not downloaded_files:
+            raise HTTPException(status_code=500, detail="所有图片下载失败")
+        
+        # 打包为zip
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for filepath in downloaded_files:
+                zf.write(filepath, os.path.basename(filepath))
+        
+        zip_buffer.seek(0)
+        
+        logger.info(f"成功打包 {len(downloaded_files)}/{len(urls)} 张图片")
+        
+        return StreamingResponse(
+            zip_buffer,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": "attachment; filename=similar_images.zip"
+            }
+        )
+    finally:
+        # 清理临时目录
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 @app.get("/health")
