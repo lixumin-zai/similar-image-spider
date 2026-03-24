@@ -1,9 +1,26 @@
 import { useState, useCallback } from 'react'
-import { DownloadIcon, TrashIcon } from './Icons'
+import { DownloadIcon, TrashIcon, FileTextIcon } from './Icons'
 import axios from 'axios'
 
 function DownloadBar({ selectedUrls, totalCount, onDeselectAll, onDeleteSelected, onToast }) {
     const [downloading, setDownloading] = useState(false)
+
+    const handleDownloadUrls = useCallback(() => {
+        if (selectedUrls.size === 0) return
+        
+        const urlsText = Array.from(selectedUrls).join('\n')
+        const blob = new Blob([urlsText], { type: 'text/plain' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'url.txt'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        
+        onToast(`成功导出 ${selectedUrls.size} 个URL`, 'success')
+    }, [selectedUrls, onToast])
 
     const handleDownload = useCallback(async () => {
         if (downloading || selectedUrls.size === 0) return
@@ -54,6 +71,10 @@ function DownloadBar({ selectedUrls, totalCount, onDeselectAll, onDeleteSelected
                     <button className="btn btn-primary" onClick={handleDownload}>
                         <DownloadIcon />
                         下载选中
+                    </button>
+                    <button className="btn btn-secondary" onClick={handleDownloadUrls}>
+                        <FileTextIcon />
+                        获取URL
                     </button>
                     <button className="btn btn-danger btn-sm" onClick={onDeleteSelected}>
                         <TrashIcon />
