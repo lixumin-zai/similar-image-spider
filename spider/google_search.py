@@ -18,7 +18,6 @@ from user_agent import UserAgent
 from PIL import Image
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 class GoogleSimilarImageSpider:
     def __init__(self):

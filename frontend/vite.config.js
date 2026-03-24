@@ -10,6 +10,7 @@ export default defineConfig({
             '/search-similar-base64': 'http://localhost:8000',
             '/download-images': 'http://localhost:8000',
             '/health': 'http://localhost:8000',
-        }
+        },
+        host: '0.0.0.0'
     }
 })

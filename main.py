@@ -20,10 +20,9 @@ from spider.baidu_search import BaiduSimilarImageSpider
 from download_image import download_images
 
 # 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - line : %(lineno)s - %(funcName)s : %(message)s', 
+                    level=logging.INFO, 
+                    datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
 
