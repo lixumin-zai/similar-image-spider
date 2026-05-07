@@ -40,13 +40,17 @@ def _save_token_to_disk(token):
     except Exception as e:
         print(f"Failed to save token: {e}")
 
-def _load_token_from_disk():
-    """Load token from disk."""
+def _load_token_from_disk(max_age=900):
+    """Load token from disk. If older than max_age seconds, return None."""
     if not os.path.exists(TOKEN_FILE):
         return None
     try:
         with open(TOKEN_FILE, "r") as f:
             data = json.load(f)
+            updated_at = data.get("updated_at", 0)
+            if time.time() - updated_at > max_age:
+                print("Token on disk is expired.")
+                return None
             return data.get("token")
     except Exception as e:
         print(f"Failed to load token: {e}")

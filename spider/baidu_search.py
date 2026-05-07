@@ -99,6 +99,8 @@ class BaiduSimilarImageSpider:
                                      token = await self._get_valid_token(force_refresh=True)
                                      if token:
                                          headers["acs-token"] = token
+                                         retries += 1
+                                         continue
 
                                 return ""
 
